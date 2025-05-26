@@ -19,7 +19,8 @@ export const authConfig = {
   secret: process.env.NEXTAUTH_SECRET,
   session: {
     strategy: 'jwt',
-    maxAge: 24 * 60 * 60, // 24 hours
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+    updateAge: 24 * 60 * 60, // 24 hours
   },
   debug: process.env.NODE_ENV === 'development',
   pages: {
@@ -34,6 +35,10 @@ export const authConfig = {
         token.refreshToken = account.refresh_token
         token.accessTokenExpires = account.expires_at * 1000
         token.profile = profile
+      }
+      // Check if token needs refresh
+      if (Date.now() < token.accessTokenExpires) {
+        return token
       }
       return token
     },

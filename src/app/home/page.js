@@ -1,49 +1,90 @@
 'use client'
 
 import { useSession, signIn, signOut } from 'next-auth/react'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 
 export default function Home() {
-  const { data: session, status } = useSession({
-    required: true,
-    onUnauthenticated() {
-      signIn('google')
-    },
-  })
+  const { data: session, status } = useSession()
   const [scheduledMeeting, setScheduledMeeting] = useState(null)
   const [instantMeeting, setInstantMeeting] = useState(null)
   const [dateTime, setDateTime] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState(null)
 
-  useEffect(() => {
-    // Clear meetings when user signs out
-    if (status === 'unauthenticated') {
-      setScheduledMeeting(null)
-      setInstantMeeting(null)
-      setDateTime('')
+  console.log('Client-side session:', session)
+  console.log('Session status:', status)
+
+  const createInstantMeeting = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      const response = await fetch('/api/meetings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          summary: 'Instant Meeting',
+        }),
+        credentials: 'include',
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create meeting')
+      }
+
+      const result = await response.json()
+      setInstantMeeting({
+        link: result.meetingLink,
+        id: result.meetingId,
+        createdAt: new Date().toLocaleString()
+      })
+    } catch (err) {
+      setError('Failed to create meeting. Please try again.')
+      console.error('Error creating instant meeting:', err)
+    } finally {
+      setIsLoading(false)
     }
-  }, [status])
-
-  const generateMeetLink = () => {
-    // In a real application, this would use the Google Calendar API
-    const meetId = Math.random().toString(36).substring(2, 15)
-    return `https://meet.google.com/${meetId}`
   }
 
-  const createInstantMeeting = () => {
-    const meetLink = generateMeetLink()
-    setInstantMeeting({
-      link: meetLink,
-      createdAt: new Date().toLocaleString()
-    })
-  }
-
-  const createScheduledMeeting = (e) => {
+  const createScheduledMeeting = async (e) => {
     e.preventDefault()
-    const meetLink = generateMeetLink()
-    setScheduledMeeting({
-      link: meetLink,
-      scheduledFor: new Date(dateTime).toLocaleString()
-    })
+    try {
+      setIsLoading(true)
+      setError(null)
+      const response = await fetch('/api/meetings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          summary: 'Scheduled Meeting',
+          startTime: new Date(dateTime).toISOString(),
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to schedule meeting')
+      }
+
+      const result = await response.json()
+      setScheduledMeeting({
+        link: result.meetingLink,
+        id: result.meetingId,
+        scheduledFor: new Date(dateTime).toLocaleString()
+      })
+    } catch (err) {
+      setError('Failed to schedule meeting. Please try again.')
+      console.error('Error scheduling meeting:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleSignIn = (e) => {
+    e.preventDefault()
+    signIn('google', { callbackUrl: '/home' })
   }
 
   if (status === 'loading') {
@@ -54,18 +95,62 @@ export default function Home() {
     )
   }
 
-  if (status === 'unauthenticated') {
+  if (!session) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="bg-white p-8 rounded-lg shadow-md text-center">
-          <h1 className="text-2xl font-bold mb-4">Welcome to Meeting Scheduler</h1>
-          <p className="mb-4 text-gray-600">Sign in with Google to create and schedule meetings</p>
-          <button
-            onClick={() => signIn('google', { callbackUrl: '/home' })}
-            className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600"
-          >
-            Sign in with Google
-          </button>
+      <div className="min-h-screen bg-gray-100">
+        {/* Hero Section */}
+        <div className="bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <div className="text-center">
+              <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
+                <span className="block">Welcome to</span>
+                <span className="block text-blue-600">Meeting Scheduler</span>
+              </h1>
+              <p className="mt-3 max-w-md mx-auto text-base text-gray-500 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
+                Create instant meetings or schedule them for later. Simple, fast, and efficient way to manage your Google Meet sessions.
+              </p>
+              <div className="mt-5 max-w-md mx-auto sm:flex sm:justify-center md:mt-8">
+                <div className="rounded-md shadow">
+                  <button
+                    onClick={handleSignIn}
+                    className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 md:py-4 md:text-lg md:px-10"
+                  >
+                    Sign in with Google
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Features Section */}
+        <div className="py-12 bg-gray-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="lg:text-center">
+              <h2 className="text-base text-blue-600 font-semibold tracking-wide uppercase">Features</h2>
+              <p className="mt-2 text-3xl leading-8 font-extrabold tracking-tight text-gray-900 sm:text-4xl">
+                Everything you need for meetings
+              </p>
+            </div>
+
+            <div className="mt-10">
+              <div className="space-y-10 md:space-y-0 md:grid md:grid-cols-2 md:gap-x-8 md:gap-y-10">
+                <div className="relative">
+                  <div className="text-lg leading-6 font-medium text-gray-900">Instant Meetings</div>
+                  <div className="mt-2 text-base text-gray-500">
+                    Create instant Google Meet links with one click. Perfect for impromptu meetings.
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <div className="text-lg leading-6 font-medium text-gray-900">Scheduled Meetings</div>
+                  <div className="mt-2 text-base text-gray-500">
+                    Plan ahead by scheduling meetings with specific dates and times.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -74,6 +159,11 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-100 p-8">
       <div className="max-w-4xl mx-auto">
+        {error && (
+          <div className="mb-4 p-4 bg-red-100 text-red-700 rounded">
+            {error}
+          </div>
+        )}
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
             {session?.user?.image && (
@@ -99,15 +189,24 @@ export default function Home() {
             <h2 className="text-xl font-bold mb-4">Instant Meeting</h2>
             <button
               onClick={createInstantMeeting}
-              className="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600 w-full"
+              disabled={isLoading}
+              className={`w-full px-6 py-2 rounded ${
+                isLoading
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-green-500 hover:bg-green-600'
+              } text-white`}
             >
-              Create Instant Meeting
+              {isLoading ? 'Creating...' : 'Create Instant Meeting'}
             </button>
             {instantMeeting && (
               <div className="mt-4 p-4 bg-gray-50 rounded">
                 <p className="font-medium">Meeting Link:</p>
-                <a href={instantMeeting.link} target="_blank" rel="noopener noreferrer" 
-                   className="text-blue-500 hover:underline break-all">
+                <a
+                  href={instantMeeting.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-500 hover:underline break-all"
+                >
                   {instantMeeting.link}
                 </a>
                 <p className="mt-2 text-sm text-gray-600">
@@ -128,19 +227,29 @@ export default function Home() {
                 className="w-full p-2 border rounded mb-4"
                 required
                 min={new Date().toISOString().slice(0, 16)}
+                disabled={isLoading}
               />
               <button
                 type="submit"
-                className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 w-full"
+                disabled={isLoading}
+                className={`w-full px-6 py-2 rounded ${
+                  isLoading
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-blue-500 hover:bg-blue-600'
+                } text-white`}
               >
-                Schedule Meeting
+                {isLoading ? 'Scheduling...' : 'Schedule Meeting'}
               </button>
             </form>
             {scheduledMeeting && (
               <div className="mt-4 p-4 bg-gray-50 rounded">
                 <p className="font-medium">Meeting Link:</p>
-                <a href={scheduledMeeting.link} target="_blank" rel="noopener noreferrer"
-                   className="text-blue-500 hover:underline break-all">
+                <a
+                  href={scheduledMeeting.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-500 hover:underline break-all"
+                >
                   {scheduledMeeting.link}
                 </a>
                 <p className="mt-2 text-sm text-gray-600">

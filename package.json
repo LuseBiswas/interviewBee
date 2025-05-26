@@ -12,6 +12,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@googleapis/calendar": "^9.8.0",
+    "googleapis": "^149.0.0",
     "next": "latest",
     "next-auth": "latest",
     "react": "latest",

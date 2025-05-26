@@ -1,10 +1,13 @@
 import { google } from 'googleapis'
 import { getServerSession } from 'next-auth'
 import { authConfig } from '../auth/config'
+import { headers } from 'next/headers'
+
 
 export async function POST(req) {
   try {
-    const session = await getServerSession(req, {}, authConfig)
+    // Get the session using the auth config
+    const session = await getServerSession(authConfig)
     console.log('Session in API route:', session)
     
     if (!session?.user) {
@@ -20,7 +23,8 @@ export async function POST(req) {
     // Get a fresh token using the refresh token
     const oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET
+      process.env.GOOGLE_CLIENT_SECRET,
+      `${process.env.NEXTAUTH_URL}/api/auth/callback/google`  // Add the callback URL
     )
 
     if (!session.accessToken) {

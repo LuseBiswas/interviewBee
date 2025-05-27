@@ -1,18 +1,30 @@
 'use client'
 
 import { useSession, signIn, signOut } from 'next-auth/react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export default function Home() {
   const { data: session, status } = useSession()
   const [scheduledMeeting, setScheduledMeeting] = useState(null)
   const [instantMeeting, setInstantMeeting] = useState(null)
   const [dateTime, setDateTime] = useState('')
+  const [minDateTime, setMinDateTime] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
 
   console.log('Client-side session:', session)
   console.log('Session status:', status)
+
+  useEffect(() => {
+    const now = new Date()
+    // Add 5 minutes to current time to give buffer for meeting creation
+    now.setMinutes(now.getMinutes() + 5)
+    const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 16)
+    setMinDateTime(localDateTime)
+    setDateTime(localDateTime) // Set default value to current time + 5 minutes
+  }, [])
 
   const createInstantMeeting = async () => {
     try {
@@ -50,6 +62,16 @@ export default function Home() {
 
   const createScheduledMeeting = async (e) => {
     e.preventDefault()
+    
+    // Additional validation for past dates
+    const selectedDateTime = new Date(dateTime)
+    const now = new Date()
+    
+    if (selectedDateTime <= now) {
+      setError('Please select a future date and time for the meeting.')
+      return
+    }
+    
     try {
       setIsLoading(true)
       setError(null)
@@ -226,14 +248,14 @@ export default function Home() {
                 onChange={(e) => setDateTime(e.target.value)}
                 className="w-full p-2 border rounded mb-4"
                 required
-                min={new Date().toISOString().slice(0, 16)}
+                min={minDateTime}
                 disabled={isLoading}
               />
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || !dateTime || new Date(dateTime) <= new Date()}
                 className={`w-full px-6 py-2 rounded ${
-                  isLoading
+                  isLoading || !dateTime || new Date(dateTime) <= new Date()
                     ? 'bg-gray-400 cursor-not-allowed'
                     : 'bg-blue-500 hover:bg-blue-600'
                 } text-white`}
